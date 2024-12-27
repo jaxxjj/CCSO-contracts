@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.26;
+pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
 import "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import "./IStateManager.sol";
+import "../interfaces/IStateManager.sol";
 
 /// @title StateManager
 /// @notice manages and stores states, supporting immutable and monotonic state types
