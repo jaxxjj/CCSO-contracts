@@ -4,7 +4,7 @@
 | -------- | -------- | -------- |
 | `CrossChainStateVerifier.sol` | Singleton | UUPS proxy |
 
-A `CrossChainStateVerifier` is responsible for verifying cross-chain state claims and managing operator challenges. It enables secure state verification across different chains through:
+`CrossChainStateVerifier` is responsible for verifying cross-chain state claims and managing operator challenges. It enables secure state verification across different chains through:
 - Bridge-specific state verification
 - Challenge-based dispute resolution
 - Operator slashing mechanism
@@ -66,7 +66,7 @@ Requirements:
 - No existing challenge for same parameters
 - Valid bridge verifier configured
 
-## Challenge Resolution (Update)
+## Challenge Resolution 
 The resolution process determines challenge outcome and handles penalties.
 
 Methods:
@@ -92,7 +92,7 @@ Requirements:
 - Challenge period must be over
 - Challenge not already resolved
 
-## Configuration (Admin)
+## Configuration 
 Administrative functions for managing verifier settings.
 
 Methods:

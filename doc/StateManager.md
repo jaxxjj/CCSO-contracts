@@ -5,7 +5,7 @@
 | -------- | -------- | -------- |
 | `StateManager.sol` | Singleton | - |
 
-A `StateManager` is responsible for managing state transitions and history for users, and it allows operators and users to create, read, and update states. It supports two types of states:
+`StateManager` is responsible for managing state transitions and history for users, and it allows operators and users to create, read, and update states. It supports two types of states:
 - Immutable states: Once committed, these states cannot be modified
 - Monotonic states: Each new state value must be strictly greater than the previous value
 
