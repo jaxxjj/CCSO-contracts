@@ -15,6 +15,7 @@ remappings = [
     "ds-test/=lib/forge-std/lib/ds-test/src/",
     "@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/",
     "@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol",
+    "@openzeppelin-v5.1.0/=lib/openzeppelin-contracts/"
 ]
 
 # Enables or disables the optimizer
