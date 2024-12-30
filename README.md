@@ -81,3 +81,8 @@ Operator
 - Chainlink CCIP (planned)
 - Other cross-chain messaging protocols
 
+## Roles
+Staker: delegate/undelegate through EigenLayer core contracts
+Operator: register/unregister through RegistryCoordinator
+Task Generator: generate tasks off chain directly to operators
+Bridge Verifier: verify state proofs (only when challenged) from bridge protocols

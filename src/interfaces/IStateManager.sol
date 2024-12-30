@@ -12,21 +12,23 @@ interface IStateManager {
     error StateManager__NoStateHistoryFound();
     error StateManager__NoStateFoundAtBlock();
     error StateManager__StateIndexOutOfBounds(uint256 index);
+    error StateManager__ArrayLengthMismatch();
 
     // state types
     enum StateType {
-        IMMUTABLE,    // state that cannot be changed
-        MONOTONIC     // state that can only increase
+        IMMUTABLE, // state that cannot be changed
+        MONOTONIC // state that can only increase
+
     }
 
     // state data structure
     struct State {
-        bytes32 value;          // state value
-        uint256 timestamp;      // timestamp when created
-        uint256 blockNumber;    // block number when created
-        uint256 nonce;         // sequence number
-        StateType stateType;    // type of state
-        bytes metadata;         // additional metadata
+        bytes32 value; // state value
+        uint256 timestamp; // timestamp when created
+        uint256 blockNumber; // block number when created
+        uint256 nonce; // sequence number
+        StateType stateType; // type of state
+        bytes metadata; // additional metadata
     }
 
     // emitted when a new state is committed
@@ -47,24 +49,26 @@ interface IStateManager {
         bytes calldata metadata
     ) external returns (uint256, uint256);
 
-    // gets state at a specific block
-    function getStateAtBlock(
-        address user, 
-        uint256 blockNumber
+    // gets latest state for a user
+    function latest(
+        address user
     ) external view returns (uint256);
 
-    // gets latest state for a user
-    function latest(address user) external view returns (uint256);
-
     // gets current nonce for a user
-    function getCurrentNonce(address user) external view returns (uint256);
+    function getCurrentNonce(
+        address user
+    ) external view returns (uint256);
 
-    // gets state at specific index
-    function getState(
-        address user, 
-        uint256 index
+    function getStateByBlockNumber(
+        address user,
+        uint256 blockNumber
     ) external view returns (State memory);
 
+    // gets state at specific index
+    function getState(address user, uint256 index) external view returns (State memory);
+
     // gets total number of states for a user
-    function getStateCount(address user) external view returns (uint256);
+    function getStateCount(
+        address user
+    ) external view returns (uint256);
 }
