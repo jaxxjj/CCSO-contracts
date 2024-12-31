@@ -8,7 +8,11 @@ interface IAbridgeMessageHandler {
     /// @param _from The address of the sender
     /// @param _msg The message data
     /// @return response The function selector to confirm successful handling
-    function handleMessage(address _from, bytes calldata _msg, bytes32 guid) external returns (bytes4 response);
+    function handleMessage(
+        address _from,
+        bytes calldata _msg,
+        bytes32 guid
+    ) external returns (bytes4 response);
 }
 
 /// @title IAbridge
@@ -53,7 +57,9 @@ interface IAbridge {
     /// @notice Checks if a sender is authorized
     /// @param sender The address of the sender to check
     /// @return authorized True if the sender is authorized, false otherwise
-    function authorizedSenders(address sender) external view returns (bool authorized);
+    function authorizedSenders(
+        address sender
+    ) external view returns (bool authorized);
 
     /// @notice Estimates the fee for sending a message
     /// @param _receiver Address of the receiver

@@ -4,44 +4,42 @@ pragma solidity ^0.8.26;
 import "@openzeppelin-upgrades/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin-upgrades/contracts/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
-import "../interfaces/IBridgeVerifier.sol";
+import {ReentrancyGuard} from "@openzeppelin-v5.0.0/contracts/utils/ReentrancyGuard.sol";
 import "../interfaces/IAllocationManager.sol";
 import "../interfaces/IStrategy.sol";
+import "../interfaces/IMainChainVerifier.sol";
 import "../interfaces/IStateDisputeResolver.sol";
 import "../interfaces/ICCSOServiceManager.sol";
 
-contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUpgradeable {
-
+contract StateDisputeResolver is
+    IStateDisputeResolver,
+    Initializable,
+    OwnableUpgradeable,
+    ReentrancyGuard
+{
+    // Constants
+    uint256 public constant UNVERIFIED = type(uint256).max;
+    uint256 public constant CHALLENGE_WINDOW = 7200; // 24 hours
+    uint256 public constant CHALLENGE_BOND = 1 ether; // 1e18 wei
+    uint256 public constant CHALLENGE_PERIOD = 7200; // 24 hours in blocks
 
     IAllocationManager public immutable allocationManager;
 
-    // Bridge verifiers for each chain
-    mapping(uint256 => IBridgeVerifier) public override bridgeVerifiers;
-
-    // Operator state mapping
-    mapping(address => OperatorState) public override operators;
-
-    // Bond required to submit a challenge
-    uint256 public override challengeBond;
-
-    // Challenge window in blocks
-    uint256 public override challengePeriod;
-
     // New state variables
-    uint32 public override currentOperatorSetId;
-    IStrategy[] public override slashableStrategies;
-    uint256 public override slashAmount; // In WAD format (1e18 = 100%)
-
-    // Active challenges
-    mapping(bytes32 => Challenge) public override challenges;
-
-    // Add mapping for StateManager addresses
-    mapping(uint256 => address) public override stateManagers;
-
-    // Add ServiceManager reference
+    uint32 public currentOperatorSetId;
+    IStrategy[] public slashableStrategies;
+    uint256 public slashAmount; // In WAD format (1e18 = 100%)
     ICCSOServiceManager public serviceManager;
 
-    // Add modifier for ServiceManager only calls
+    // Active challenges
+    mapping(bytes32 => Challenge) private challenges;
+    mapping(address => OperatorState) private operators;
+    // Add mapping for StateManager addresses
+    mapping(uint256 => address) public stateManagers;
+
+    // single mainChainVerifier address
+    address public mainChainVerifier;
+
     modifier onlyServiceManager() {
         if (msg.sender != address(serviceManager)) {
             revert StateDisputeResolver__CallerNotServiceManager();
@@ -49,12 +47,8 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
         _;
     }
 
-    // Add challenge window
-    uint256 public constant CHALLENGE_WINDOW = 7200; // 24 hours
-
-    // 添加MainChainVerifier权限检查
     modifier onlyMainChainVerifier() {
-        if (msg.sender != address(bridgeVerifiers[mainChainId])) {
+        if (msg.sender != mainChainVerifier) {
             revert StateDisputeResolver__CallerNotMainChainVerifier();
         }
         _;
@@ -66,41 +60,25 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
         allocationManager = IAllocationManager(_allocationManager);
     }
 
-    function initialize(
-        uint256 _challengeBond,
-        uint256 _challengePeriod,
-        uint32 _operatorSetId,
-        uint256 _slashAmount
-    ) external initializer {
+    function initialize(uint32 _operatorSetId, uint256 _slashAmount) external initializer {
         __Ownable_init();
-        challengeBond = _challengeBond;
-        challengePeriod = _challengePeriod;
         currentOperatorSetId = _operatorSetId;
         slashAmount = _slashAmount;
     }
 
-    // sets verifier for specific chain
-    function setVerifier(uint256 chainId, address verifier) external onlyOwner {
-        bridgeVerifiers[chainId] = IBridgeVerifier(verifier);
-        emit VerifierSet(chainId, verifier);
-    }
-
     // submit challenge for invalid state claim
-    function submitChallenge(
-        address operator,
-        uint32 taskNum
-    ) external payable {
-        // check bond amount
-        if (msg.value < challengeBond) {
+    function submitChallenge(address operator, uint32 taskNum) external payable nonReentrant {
+        // check bond amount using constant
+        if (msg.value < CHALLENGE_BOND) {
             revert StateDisputeResolver__InsufficientBond();
         }
 
         // get task response
-        ICCSOServiceManager.TaskResponse memory response = 
+        ICCSOServiceManager.TaskResponse memory response =
             ICCSOServiceManager(serviceManager).getTaskResponse(operator, taskNum);
-        
+
         // verify task exists
-        if (!response.exist) {
+        if (response.responseBlock == 0) {
             revert StateDisputeResolver__TaskNotFound();
         }
 
@@ -118,46 +96,34 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
             revert StateDisputeResolver__OperatorNotRegistered();
         }
 
-        bytes32 challengeId = keccak256(
-            abi.encodePacked(
-                operator,
-                taskNum
-            )
-        );
+        bytes32 challengeId = keccak256(abi.encodePacked(operator, taskNum));
 
         if (challenges[challengeId].challenger != address(0)) {
             revert StateDisputeResolver__ChallengeAlreadyExists();
         }
 
-        IBridgeVerifier verifier = bridgeVerifiers[response.task.chainId];
-        if (address(verifier) == address(0)) {
-            revert StateDisputeResolver__NoVerifierConfigured();
-        }
-
         challenges[challengeId] = Challenge({
             challenger: msg.sender,
-            deadline: block.number + challengePeriod,
+            deadline: block.number + CHALLENGE_PERIOD,
             resolved: false,
-            claimedState: bytes32(response.task.value), // 存储operator提交的值
-            actualState: bytes32(0),  // 等待verifier返回实际状态
+            claimedState: response.task.value,
+            actualState: UNVERIFIED,
             verified: false
         });
 
-        // 标记TaskResponse为challenged
+        // mark TaskResponse as challenged
         ICCSOServiceManager(serviceManager).handleChallengeResult(
             operator,
             taskNum,
-            false  // 初始设置为未验证
+            false // initial state is not verified
         );
-
 
         emit ChallengeSubmitted(challengeId, msg.sender);
     }
 
-    // resolves submitted challenge
-    function resolveChallenge(
-        bytes32 challengeId
-    ) external {
+    // everyone can call resolves submitted challenge
+    function resolveChallenge(address operator, uint32 taskNum) external nonReentrant {
+        bytes32 challengeId = keccak256(abi.encodePacked(operator, taskNum));
         Challenge storage challenge = challenges[challengeId];
 
         if (challenge.resolved) {
@@ -168,16 +134,33 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
             revert StateDisputeResolver__ChallengePeriodActive();
         }
 
-        if (challenge.claimedState != challenge.actualState) {
-            address operator = address(uint160(uint256(challengeId)));
+        // get task response to get chainId
+        ICCSOServiceManager.TaskResponse memory response =
+            ICCSOServiceManager(serviceManager).getTaskResponse(operator, taskNum);
+
+        // get verified state from MainChainVerifier
+        (uint256 actualValue, bool exist) = IMainChainVerifier(mainChainVerifier).getVerifiedState(
+            response.task.chainId, response.task.user, response.task.key, response.task.blockNumber
+        );
+
+        if (!exist) {
+            revert StateDisputeResolver__StateNotVerified();
+        }
+
+        // slash operator if claimed state does not match actual state
+        if (challenge.claimedState != actualValue) {
             _slashOperator(operator, challengeId);
-            payable(challenge.challenger).transfer(challengeBond);
+            payable(challenge.challenger).transfer(CHALLENGE_BOND);
         } else {
-            payable(challenge.challenger).transfer(challengeBond / 2);
+            // return half of bond to challenger
+            payable(challenge.challenger).transfer(CHALLENGE_BOND / 2);
         }
 
         challenge.resolved = true;
-        emit ChallengeResolved(challengeId, challenge.claimedState != challenge.actualState);
+        challenge.actualState = actualValue;
+        challenge.verified = true;
+
+        emit ChallengeResolved(challengeId, challenge.claimedState != actualValue);
     }
 
     function setOperatorSetId(
@@ -210,8 +193,57 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
         emit SlashAmountUpdated(newAmount);
     }
 
+    function setStateManager(uint256 chainId, address stateManager) external onlyOwner {
+        if (stateManager == address(0)) {
+            revert StateDisputeResolver__InvalidStateManagerAddress();
+        }
+        stateManagers[chainId] = stateManager;
+        emit StateManagerSet(chainId, stateManager);
+    }
+
+    function setServiceManager(
+        address _serviceManager
+    ) external onlyOwner {
+        require(_serviceManager != address(0), "Invalid address");
+        serviceManager = ICCSOServiceManager(_serviceManager);
+        emit ServiceManagerSet(_serviceManager);
+    }
+
+    // set mainChainVerifier address
+    function setMainChainVerifier(
+        address _verifier
+    ) external onlyOwner {
+        if (_verifier == address(0)) {
+            revert StateDisputeResolver__InvalidVerifierAddress();
+        }
+        mainChainVerifier = _verifier;
+        emit MainChainVerifierSet(_verifier);
+    }
+
+    function getStateManager(
+        uint256 chainId
+    ) external view returns (address) {
+        address stateManager = stateManagers[chainId];
+        if (stateManager == address(0)) {
+            revert StateDisputeResolver__StateManagerNotConfigured();
+        }
+        return stateManager;
+    }
+
+    function getChallenge(
+        bytes32 challengeId
+    ) external view returns (Challenge memory) {
+        return challenges[challengeId];
+    }
+
+    function getOperator(
+        address operator
+    ) external view returns (OperatorState memory) {
+        return operators[operator];
+    }
+
     // internal function to slash operator
-    function _slashOperator(address operator, bytes32 challengeId) internal {
+    function _slashOperator(address operator, bytes32 challengeId) private {
         if (slashableStrategies.length == 0) {
             revert StateDisputeResolver__EmptyStrategiesArray();
         }
@@ -237,48 +269,5 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
         state.isSlashed = true;
 
         emit OperatorSlashed(operator, challengeId);
-    }
-
-    function setStateManager(uint256 chainId, address stateManager) external onlyOwner {
-        if (stateManager == address(0)) {
-            revert StateDisputeResolver__InvalidStateManagerAddress();
-        }
-        stateManagers[chainId] = stateManager;
-        emit StateManagerSet(chainId, stateManager);
-    }
-
-    function getStateManager(
-        uint256 chainId
-    ) external view returns (address) {
-        address stateManager = stateManagers[chainId];
-        if (stateManager == address(0)) {
-            revert StateDisputeResolver__StateManagerNotConfigured();
-        }
-        return stateManager;
-    }
-
-    function setServiceManager(
-        address _serviceManager
-    ) external onlyOwner {
-        require(_serviceManager != address(0), "Invalid address");
-        serviceManager = ICCSOServiceManager(_serviceManager);
-        emit ServiceManagerSet(_serviceManager);
-    }
-
-    // update verification result from main chain verifier
-    function updateChallengeVerification(
-        bytes32 challengeId,
-        bytes32 actualState,
-        bool verified
-    ) external onlyMainChainVerifier {
-        Challenge storage challenge = challenges[challengeId];
-        if (challenge.challenger == address(0)) {
-            revert StateDisputeResolver__ChallengeNotFound();
-        }
-        
-        challenge.actualState = actualState;
-        challenge.verified = verified;
-        
-        emit ChallengeVerificationUpdated(challengeId, actualState, verified);
     }
 }

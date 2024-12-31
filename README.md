@@ -65,10 +65,12 @@ Operator
 - Operator processes and signs response
 - Response verified through ECDSA signatures
 
-3. **State Verification**
-- Operators submit cross-chain state claims
-- Claims can be challenged
-- Disputes resolved through bridge verifiers
+1. **Challenge**
+1. 流程梳理:
+`StateDisputeResolver::submitChallenge`  
+-> `RemoteChainVerifier::verifyState`  
+-> `MainChainVerifier::handleMessage (receive and update mapping)` 
+-> `StateDisputeResolver::resolveChallenge (verify mapping)`
 
 ## Integration
 

@@ -21,17 +21,20 @@ interface ICCSOServiceManager {
     event TaskChallenged(
         uint256 indexed chainId, uint256 blockNumber, bytes32 claimedState, address indexed operator
     );
-    event ChallengeResolved(address indexed operator, uint32 indexed taskNum, bool challengeSuccessful);
+    event ChallengeResolved(
+        address indexed operator, uint32 indexed taskNum, bool challengeSuccessful
+    );
 
     // Task struct
     struct Task {
         address user;
-        uint256 chainId;
-        uint256 blockNumber;
+        uint32 chainId;
+        uint64 blockNumber;
+        uint32 taskCreatedBlock;
         uint256 key;
         uint256 value;
-        uint32 taskCreatedBlock;
     }
+
     struct TaskResponse {
         Task task;
         uint256 responseBlock;
@@ -54,7 +57,7 @@ interface ICCSOServiceManager {
 
     // View functions
     function getTaskResponse(
-        address operator, 
+        address operator,
         uint32 taskNum
     ) external view returns (TaskResponse memory);
 
@@ -62,5 +65,4 @@ interface ICCSOServiceManager {
         uint32 taskNum
     ) external view returns (bytes32);
     function latestTaskNum() external view returns (uint32);
-
 }

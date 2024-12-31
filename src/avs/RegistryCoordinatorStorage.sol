@@ -9,7 +9,7 @@ import {IRegistryCoordinator} from "../interfaces/IRegistryCoordinator.sol";
 abstract contract RegistryCoordinatorStorage is IRegistryCoordinator {
     /**
      *
-     *                            CONSTANTS AND IMMUTABLES 
+     *                            CONSTANTS AND IMMUTABLES
      *
      */
 
@@ -42,7 +42,7 @@ abstract contract RegistryCoordinatorStorage is IRegistryCoordinator {
 
     /**
      *
-     *                                    STATE 
+     *                                    STATE
      *
      */
 

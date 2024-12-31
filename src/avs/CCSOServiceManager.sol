@@ -3,11 +3,15 @@ pragma solidity ^0.8.26;
 
 import {Initializable} from "@openzeppelin-upgrades/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgrades/contracts/access/OwnableUpgradeable.sol";
-import {ECDSAServiceManagerBase} from "@eigenlayer-middleware/src/unaudited/ECDSAServiceManagerBase.sol";
+import {ECDSAServiceManagerBase} from
+    "@eigenlayer-middleware/src/unaudited/ECDSAServiceManagerBase.sol";
 import {ECDSAStakeRegistry} from "@eigenlayer-middleware/src/unaudited/ECDSAStakeRegistry.sol";
-import {ECDSAUpgradeable} from "@openzeppelin-upgrades/contracts/utils/cryptography/ECDSAUpgradeable.sol";
-import {IERC1271Upgradeable} from "@openzeppelin-upgrades/contracts/interfaces/IERC1271Upgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgrades/contracts/security/PausableUpgradeable.sol";
+import {ECDSAUpgradeable} from
+    "@openzeppelin-upgrades/contracts/utils/cryptography/ECDSAUpgradeable.sol";
+import {IERC1271Upgradeable} from
+    "@openzeppelin-upgrades/contracts/interfaces/IERC1271Upgradeable.sol";
+import {PausableUpgradeable} from
+    "@openzeppelin-upgrades/contracts/security/PausableUpgradeable.sol";
 import {IPauserRegistry} from "@eigenlayer/contracts/interfaces/IPauserRegistry.sol";
 import {ISignatureUtils} from "@eigenlayer/contracts/interfaces/ISignatureUtils.sol";
 import {IStateDisputeResolver} from "../interfaces/IStateDisputeResolver.sol";
@@ -125,7 +129,6 @@ contract CCSOServiceManager is
     }
     // View functions
 
-
     function getTaskHash(
         uint32 taskNum
     ) external view returns (bytes32) {
@@ -133,7 +136,7 @@ contract CCSOServiceManager is
     }
 
     function getTaskResponse(
-        address operator, 
+        address operator,
         uint32 taskNum
     ) external view override returns (TaskResponse memory) {
         return _taskResponses[operator][taskNum];
