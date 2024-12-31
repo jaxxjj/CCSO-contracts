@@ -52,6 +52,14 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
     // Add challenge window
     uint256 public constant CHALLENGE_WINDOW = 7200; // 24 hours
 
+    // 添加MainChainVerifier权限检查
+    modifier onlyMainChainVerifier() {
+        if (msg.sender != address(bridgeVerifiers[mainChainId])) {
+            revert StateDisputeResolver__CallerNotMainChainVerifier();
+        }
+        _;
+    }
+
     constructor(
         address _allocationManager
     ) {
@@ -77,22 +85,31 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
         emit VerifierSet(chainId, verifier);
     }
 
-    // submits challenge for invalid state claim
+    // submit challenge for invalid state claim
     function submitChallenge(
-        uint256 chainId,
-        uint256 blockNumber,
-        bytes32 claimedState,
-        bytes memory proof,
         address operator,
         uint32 taskNum
     ) external payable {
+        // check bond amount
         if (msg.value < challengeBond) {
             revert StateDisputeResolver__InsufficientBond();
         }
 
-        ICCSOServiceManager.TaskResponse memory response =
-            ICCSOServiceManager(serviceManager).taskResponses(operator, taskNum);
+        // get task response
+        ICCSOServiceManager.TaskResponse memory response = 
+            ICCSOServiceManager(serviceManager).getTaskResponse(operator, taskNum);
+        
+        // verify task exists
+        if (!response.exist) {
+            revert StateDisputeResolver__TaskNotFound();
+        }
 
+        // verify not already challenged or resolved
+        if (response.challenged || response.resolved) {
+            revert StateDisputeResolver__TaskAlreadyProcessed();
+        }
+
+        // verify within challenge window
         if (block.number > response.responseBlock + CHALLENGE_WINDOW) {
             revert StateDisputeResolver__ChallengeWindowExpired();
         }
@@ -101,27 +118,38 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
             revert StateDisputeResolver__OperatorNotRegistered();
         }
 
-        bytes32 challengeId =
-            keccak256(abi.encodePacked(chainId, blockNumber, claimedState, operator));
+        bytes32 challengeId = keccak256(
+            abi.encodePacked(
+                operator,
+                taskNum
+            )
+        );
 
         if (challenges[challengeId].challenger != address(0)) {
             revert StateDisputeResolver__ChallengeAlreadyExists();
         }
 
-        IBridgeVerifier verifier = bridgeVerifiers[chainId];
+        IBridgeVerifier verifier = bridgeVerifiers[response.task.chainId];
         if (address(verifier) == address(0)) {
             revert StateDisputeResolver__NoVerifierConfigured();
         }
-
-        bytes32 actualState = verifier.verifyState(chainId, blockNumber, proof);
 
         challenges[challengeId] = Challenge({
             challenger: msg.sender,
             deadline: block.number + challengePeriod,
             resolved: false,
-            claimedState: claimedState,
-            actualState: actualState
+            claimedState: bytes32(response.task.value), // 存储operator提交的值
+            actualState: bytes32(0),  // 等待verifier返回实际状态
+            verified: false
         });
+
+        // 标记TaskResponse为challenged
+        ICCSOServiceManager(serviceManager).handleChallengeResult(
+            operator,
+            taskNum,
+            false  // 初始设置为未验证
+        );
+
 
         emit ChallengeSubmitted(challengeId, msg.sender);
     }
@@ -235,5 +263,22 @@ contract StateDisputeResolver is IStateDisputeResolver, Initializable, OwnableUp
         require(_serviceManager != address(0), "Invalid address");
         serviceManager = ICCSOServiceManager(_serviceManager);
         emit ServiceManagerSet(_serviceManager);
+    }
+
+    // update verification result from main chain verifier
+    function updateChallengeVerification(
+        bytes32 challengeId,
+        bytes32 actualState,
+        bool verified
+    ) external onlyMainChainVerifier {
+        Challenge storage challenge = challenges[challengeId];
+        if (challenge.challenger == address(0)) {
+            revert StateDisputeResolver__ChallengeNotFound();
+        }
+        
+        challenge.actualState = actualState;
+        challenge.verified = verified;
+        
+        emit ChallengeVerificationUpdated(challengeId, actualState, verified);
     }
 }

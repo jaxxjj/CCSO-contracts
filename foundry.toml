@@ -9,13 +9,16 @@ remappings = [
     "@eigenlayer-scripts/=lib/eigenlayer-middleware/lib/eigenlayer-contracts/script/",
     "@eigenlayer-middleware/=lib/eigenlayer-middleware/",
     "@credible-squaring/=src/",
-    "@openzeppelin/=lib/eigenlayer-middleware/lib/eigenlayer-contracts/lib/openzeppelin-contracts/",
+    "@openzeppelin/contracts/=lib/eigenlayer-middleware/lib/eigenlayer-contracts/lib/openzeppelin-contracts/contracts/",
     "@openzeppelin-upgrades/=lib/eigenlayer-middleware/lib/eigenlayer-contracts/lib/openzeppelin-contracts-upgradeable/",
     "forge-std/=lib/forge-std/src/",
     "ds-test/=lib/forge-std/lib/ds-test/src/",
     "@layerzerolabs/oapp-evm/=lib/devtools/packages/oapp-evm/",
     "@layerzerolabs/lz-evm-protocol-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/protocol",
-    "@openzeppelin-v5.1.0/=lib/openzeppelin-contracts/"
+    "@layerzerolabs/lz-evm-oapp-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/oapp/",
+    "@layerzerolabs/lz-evm-messagelib-v2/=lib/layerzero-v2/packages/layerzero-v2/evm/messagelib/",
+    "@openzeppelin-v5.0.0/=lib/openzeppelin-contracts/",
+    "solidity-bytes-utils/=lib/solidity-bytes-utils/"
 ]
 
 # Enables or disables the optimizer

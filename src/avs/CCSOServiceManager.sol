@@ -70,7 +70,7 @@ contract CCSOServiceManager is
         }
 
         bytes32 messageHash = keccak256(
-            abi.encodePacked(referenceTaskIndex, task.chainId, task.blockNumber, task.stateValue)
+            abi.encodePacked(referenceTaskIndex, task.chainId, task.blockNumber, task.value)
         );
 
         if (allTaskHashes[referenceTaskIndex] != bytes32(0)) {
@@ -91,7 +91,7 @@ contract CCSOServiceManager is
 
         // record response (Optimistic)
         _taskResponses[msg.sender][referenceTaskIndex] = TaskResponse({
-            stateValue: task.stateValue,
+            task: task,
             responseBlock: block.number,
             challenged: false,
             resolved: false
@@ -118,19 +118,13 @@ contract CCSOServiceManager is
         response.resolved = true;
 
         if (challengeSuccessful) {
-            delete response.stateValue;
+            delete response.task.value;
         }
 
         emit ChallengeResolved(operator, taskNum, challengeSuccessful);
     }
     // View functions
 
-    function taskResponses(
-        address operator,
-        uint32 taskNum
-    ) external view override returns (TaskResponse memory) {
-        return _taskResponses[operator][taskNum];
-    }
 
     function getTaskHash(
         uint32 taskNum
@@ -141,8 +135,8 @@ contract CCSOServiceManager is
     function getTaskResponse(
         address operator, 
         uint32 taskNum
-    ) external view override returns (bytes32) {
-        return _taskResponses[operator][taskNum].stateValue;
+    ) external view override returns (TaskResponse memory) {
+        return _taskResponses[operator][taskNum];
     }
 
     function registerOperatorToAVS(
