@@ -8,6 +8,7 @@ import "../interfaces/IStateManager.sol";
 import "../interfaces/IRemoteChainVerifier.sol";
 
 contract RemoteChainVerifier is IRemoteChainVerifier, Ownable2Step {
+    uint128 private constant EXECUTE_GAS_LIMIT = 500_000;
     IAbridge public immutable abridge;
     IStateManager public stateManager;
     uint256 public immutable mainChainId;
@@ -44,10 +45,10 @@ contract RemoteChainVerifier is IRemoteChainVerifier, Ownable2Step {
             bytes memory response =
                 abi.encode(mainChainId, user, key, blockNumber, history.value, true);
 
-            (, uint256 fee) = abridge.estimateFee(mainChainVerifier, 200_000, response);
+            (, uint256 fee) = abridge.estimateFee(mainChainVerifier, EXECUTE_GAS_LIMIT, response);
             if (msg.value < fee) revert RemoteChainVerifier__InsufficientFee();
 
-            abridge.send{value: msg.value}(mainChainVerifier, 200_000, response);
+            abridge.send{value: msg.value}(mainChainVerifier, EXECUTE_GAS_LIMIT, response);
 
             emit VerificationProcessed(user, key, blockNumber, history.value);
         } catch {
