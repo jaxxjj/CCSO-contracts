@@ -21,7 +21,7 @@ contract StateDisputeResolver is
     uint256 public constant UNVERIFIED = type(uint256).max;
     uint256 public constant CHALLENGE_WINDOW = 7200; // 24 hours
     uint256 public constant CHALLENGE_BOND = 1 ether; // 1e18 wei
-    uint256 public constant CHALLENGE_PERIOD = 7200; // 24 hours in blocks
+    uint256 public constant CHALLENGE_PERIOD = 7200; // 24 hours
 
     IAllocationManager public immutable allocationManager;
 
@@ -59,6 +59,8 @@ contract StateDisputeResolver is
     ) {
         allocationManager = IAllocationManager(_allocationManager);
     }
+
+    receive() external payable {}
 
     function initialize(uint32 _operatorSetId, uint256 _slashAmount) external initializer {
         __Ownable_init();
@@ -111,12 +113,8 @@ contract StateDisputeResolver is
             verified: false
         });
 
-        // mark TaskResponse as challenged
-        ICCSOServiceManager(serviceManager).handleChallengeResult(
-            operator,
-            taskNum,
-            false // initial state is not verified
-        );
+        // Mark task as challenged
+        ICCSOServiceManager(serviceManager).handleChallengeSubmission(operator, taskNum);
 
         emit ChallengeSubmitted(challengeId, msg.sender);
     }
@@ -146,9 +144,9 @@ contract StateDisputeResolver is
         if (!exist) {
             revert StateDisputeResolver__StateNotVerified();
         }
-
+        bool challengeSuccessful = challenge.claimedState != actualValue;
         // slash operator if claimed state does not match actual state
-        if (challenge.claimedState != actualValue) {
+        if (challengeSuccessful) {
             _slashOperator(operator, challengeId);
             payable(challenge.challenger).transfer(CHALLENGE_BOND);
         } else {
@@ -160,7 +158,14 @@ contract StateDisputeResolver is
         challenge.actualState = actualValue;
         challenge.verified = true;
 
-        emit ChallengeResolved(challengeId, challenge.claimedState != actualValue);
+        // Notify service manager of resolution
+        ICCSOServiceManager(serviceManager).handleChallengeResolution(
+            operator,
+            taskNum,
+            challengeSuccessful
+        );
+
+        emit ChallengeResolved(challengeId, challengeSuccessful);
     }
 
     function setOperatorSetId(
@@ -177,8 +182,12 @@ contract StateDisputeResolver is
             revert StateDisputeResolver__EmptyStrategiesArray();
         }
         delete slashableStrategies;
-        for (uint256 i = 0; i < strategies.length; i++) {
+        uint256 strategiesLength = strategies.length;
+        for (uint256 i = 0; i < strategiesLength; ) {
             slashableStrategies.push(strategies[i]);
+            unchecked {
+                ++i;
+            }
         }
         emit SlashableStrategiesUpdated(strategies);
     }
@@ -249,8 +258,12 @@ contract StateDisputeResolver is
         }
 
         uint256[] memory wadsToSlash = new uint256[](slashableStrategies.length);
-        for (uint256 i = 0; i < slashableStrategies.length; i++) {
+        uint256 strategiesLength = slashableStrategies.length;
+        for (uint256 i = 0; i < strategiesLength; ) {
             wadsToSlash[i] = slashAmount;
+            unchecked {
+                ++i;
+            }
         }
 
         IAllocationManager.SlashingParams memory params = IAllocationManager.SlashingParams({

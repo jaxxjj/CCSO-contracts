@@ -15,11 +15,13 @@ interface ICCSOServiceManager {
     error CCSOServiceManager__TaskNotChallenged();
     error CCSOServiceManager__CallerNotDisputeResolver();
     error CCSOServiceManager__CallerNotStakeRegistry();
+    error CCSOServiceManager__TaskAlreadyChallenged();
+    error CCSOServiceManager__TaskAlreadyResolved();
 
     // Events
     event TaskResponded(uint32 indexed taskIndex, Task task, address indexed operator);
     event TaskChallenged(
-        uint256 indexed chainId, uint256 blockNumber, bytes32 claimedState, address indexed operator
+        address indexed operator, uint32 indexed taskNum
     );
     event ChallengeResolved(
         address indexed operator, uint32 indexed taskNum, bool challengeSuccessful
@@ -49,7 +51,12 @@ interface ICCSOServiceManager {
         bytes memory signature
     ) external;
 
-    function handleChallengeResult(
+    function handleChallengeSubmission(
+        address operator,
+        uint32 taskNum
+    ) external;
+
+    function handleChallengeResolution(
         address operator,
         uint32 taskNum,
         bool challengeSuccessful

@@ -1,30 +1,22 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.26;
 
 import {IAbridgeMessageHandler} from "../interfaces/IAbridge.sol";
-import {IRegistryCoordinator} from "../interfaces/IRegistryCoordinator.sol";
 import {IAbridge} from "../interfaces/IAbridge.sol";
 import {Ownable2Step, Ownable} from "@openzeppelin-v5.0.0/contracts/access/Ownable2Step.sol";
 
 contract RegistryStateReceiver is IAbridgeMessageHandler, Ownable2Step {
-    IRegistryCoordinator public immutable registryCoordinator;
     IAbridge public immutable abridge;
     address public immutable sender;
 
     // operator states
-    mapping(address => uint192) public operatorBitmaps;
-    mapping(address => mapping(uint8 => uint96)) public operatorStakes;
+    mapping(address => uint256) public operatorWeights;
+    mapping(address => address) public operatorSigningKeys;
 
     error InvalidSender();
     error UpdateRouteFailed();
 
-    constructor(
-        address _registryCoordinator,
-        address _abridge,
-        address _sender,
-        address _owner
-    ) Ownable(_owner) {
-        registryCoordinator = IRegistryCoordinator(_registryCoordinator);
+    constructor(address _abridge, address _sender, address _owner) Ownable(_owner) {
         abridge = IAbridge(_abridge);
         sender = _sender;
 
@@ -47,20 +39,20 @@ contract RegistryStateReceiver is IAbridgeMessageHandler, Ownable2Step {
         if (from != sender) revert InvalidSender();
 
         // decode operators data
-        (address[] memory operators, uint192[] memory bitmaps, uint96[][] memory stakes) =
-            abi.decode(message, (address[], uint192[], uint96[][]));
+        (address[] memory operators, uint256[] memory weights, address[] memory signingKeys) =
+            abi.decode(message, (address[], uint256[], address[]));
 
         // update states
-        for (uint256 i = 0; i < operators.length; i++) {
+        uint256 operatorsLength = operators.length;
+        for (uint256 i = 0; i < operatorsLength; ) {
             address operator = operators[i];
-            operatorBitmaps[operator] = bitmaps[i];
+            operatorWeights[operator] = weights[i];
+            operatorSigningKeys[operator] = signingKeys[i];
 
-            // update stakes for each quorum
-            for (uint8 j = 0; j < stakes[i].length; j++) {
-                operatorStakes[operator][j] = stakes[i][j];
+            emit OperatorStateUpdated(operator, weights[i], signingKeys[i]);
+            unchecked {
+                ++i;
             }
-
-            emit OperatorStateUpdated(operator, bitmaps[i]);
         }
 
         return IAbridgeMessageHandler.handleMessage.selector;
@@ -68,16 +60,11 @@ contract RegistryStateReceiver is IAbridgeMessageHandler, Ownable2Step {
 
     // Get operator's complete state
     function getOperatorState(
-        address operator,
-        uint8 quorumCount
-    ) external view returns (uint192 bitmap, uint96[] memory stakes) {
-        bitmap = operatorBitmaps[operator];
-        stakes = new uint96[](quorumCount);
-
-        for (uint8 i = 0; i < quorumCount; i++) {
-            stakes[i] = operatorStakes[operator][i];
-        }
+        address operator
+    ) external view returns (uint256 weight, address signingKey) {
+        weight = operatorWeights[operator];
+        signingKey = operatorSigningKeys[operator];
     }
 
-    event OperatorStateUpdated(address indexed operator, uint192 bitmap);
+    event OperatorStateUpdated(address indexed operator, uint256 weight, address signingKey);
 }

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.26;
 
 import {Initializable} from "@openzeppelin-upgrades/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgrades/contracts/access/OwnableUpgradeable.sol";
 import {ECDSAServiceManagerBase} from
     "@eigenlayer-middleware/src/unaudited/ECDSAServiceManagerBase.sol";
 import {ECDSAStakeRegistry} from "@eigenlayer-middleware/src/unaudited/ECDSAStakeRegistry.sol";
@@ -67,10 +66,20 @@ contract CCSOServiceManager is
     function respondToTask(
         Task calldata task,
         uint32 referenceTaskIndex,
-        bytes memory signature
+        bytes memory signatureData
     ) external override whenNotPaused {
-        if (_taskResponses[msg.sender][referenceTaskIndex].resolved) {
-            revert CCSOServiceManager__TaskAlreadyResponded();
+        // Decode signature data
+        (address[] memory operators,,) = abi.decode(signatureData, (address[], bytes[], uint32));
+
+        // Check if any of the operators has already responded
+        uint256 operatorsLength = operators.length;
+        for (uint256 i = 0; i < operatorsLength;) {
+            if (_taskResponses[operators[i]][referenceTaskIndex].resolved) {
+                revert CCSOServiceManager__TaskAlreadyResponded();
+            }
+            unchecked {
+                ++i;
+            }
         }
 
         bytes32 messageHash = keccak256(
@@ -86,20 +95,27 @@ contract CCSOServiceManager is
         bytes32 ethSignedMessageHash = messageHash.toEthSignedMessageHash();
         bytes4 magicValue = IERC1271Upgradeable.isValidSignature.selector;
 
+        // verify quorum signatures
         if (
             magicValue
-                != ECDSAStakeRegistry(stakeRegistry).isValidSignature(ethSignedMessageHash, signature)
+                != ECDSAStakeRegistry(stakeRegistry).isValidSignature(
+                    ethSignedMessageHash, signatureData
+                )
         ) {
             revert CCSOServiceManager__InvalidSignature();
         }
-
-        // record response (Optimistic)
-        _taskResponses[msg.sender][referenceTaskIndex] = TaskResponse({
-            task: task,
-            responseBlock: block.number,
-            challenged: false,
-            resolved: false
-        });
+        // record response for each signing operator
+        for (uint256 i = 0; i < operatorsLength; ) {
+            _taskResponses[operators[i]][referenceTaskIndex] = TaskResponse({
+                task: task,
+                responseBlock: block.number,
+                challenged: false,
+                resolved: false
+            });
+            unchecked {
+                ++i;
+            }
+        }
 
         if (referenceTaskIndex >= latestTaskNum) {
             allTaskHashes[referenceTaskIndex] = messageHash;
@@ -109,7 +125,19 @@ contract CCSOServiceManager is
         emit TaskResponded(referenceTaskIndex, task, msg.sender);
     }
 
-    function handleChallengeResult(
+    function handleChallengeSubmission(
+        address operator,
+        uint32 taskNum
+    ) external onlyDisputeResolver {
+        TaskResponse storage response = _taskResponses[operator][taskNum];
+        if (response.challenged) {
+            revert CCSOServiceManager__TaskAlreadyChallenged();
+        }
+        response.challenged = true;
+        emit TaskChallenged(operator, taskNum);
+    }
+
+    function handleChallengeResolution(
         address operator,
         uint32 taskNum,
         bool challengeSuccessful
@@ -118,16 +146,13 @@ contract CCSOServiceManager is
         if (!response.challenged) {
             revert CCSOServiceManager__TaskNotChallenged();
         }
-
-        response.resolved = true;
-
-        if (challengeSuccessful) {
-            delete response.task.value;
+        if (response.resolved) {
+            revert CCSOServiceManager__TaskAlreadyResolved();
         }
-
+        
+        response.resolved = true;
         emit ChallengeResolved(operator, taskNum, challengeSuccessful);
     }
-    // View functions
 
     function getTaskHash(
         uint32 taskNum
