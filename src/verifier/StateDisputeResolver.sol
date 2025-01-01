@@ -9,7 +9,7 @@ import "../interfaces/IAllocationManager.sol";
 import "../interfaces/IStrategy.sol";
 import "../interfaces/IMainChainVerifier.sol";
 import "../interfaces/IStateDisputeResolver.sol";
-import "../interfaces/ICCSOServiceManager.sol";
+import "../interfaces/ISpottedServiceManager.sol";
 
 contract StateDisputeResolver is
     IStateDisputeResolver,
@@ -29,7 +29,7 @@ contract StateDisputeResolver is
     uint32 public currentOperatorSetId;
     IStrategy[] public slashableStrategies;
     uint256 public slashAmount; // In WAD format (1e18 = 100%)
-    ICCSOServiceManager public serviceManager;
+    ISpottedServiceManager public serviceManager;
 
     // Active challenges
     mapping(bytes32 => Challenge) private challenges;
@@ -76,8 +76,8 @@ contract StateDisputeResolver is
         }
 
         // get task response
-        ICCSOServiceManager.TaskResponse memory response =
-            ICCSOServiceManager(serviceManager).getTaskResponse(operator, taskNum);
+        ISpottedServiceManager.TaskResponse memory response =
+            ISpottedServiceManager(serviceManager).getTaskResponse(operator, taskNum);
 
         // verify task exists
         if (response.responseBlock == 0) {
@@ -114,7 +114,7 @@ contract StateDisputeResolver is
         });
 
         // Mark task as challenged
-        ICCSOServiceManager(serviceManager).handleChallengeSubmission(operator, taskNum);
+        ISpottedServiceManager(serviceManager).handleChallengeSubmission(operator, taskNum);
 
         emit ChallengeSubmitted(challengeId, msg.sender);
     }
@@ -133,8 +133,8 @@ contract StateDisputeResolver is
         }
 
         // get task response to get chainId
-        ICCSOServiceManager.TaskResponse memory response =
-            ICCSOServiceManager(serviceManager).getTaskResponse(operator, taskNum);
+        ISpottedServiceManager.TaskResponse memory response =
+            ISpottedServiceManager(serviceManager).getTaskResponse(operator, taskNum);
 
         // get verified state from MainChainVerifier
         (uint256 actualValue, bool exist) = IMainChainVerifier(mainChainVerifier).getVerifiedState(
@@ -159,7 +159,7 @@ contract StateDisputeResolver is
         challenge.verified = true;
 
         // Notify service manager of resolution
-        ICCSOServiceManager(serviceManager).handleChallengeResolution(
+        ISpottedServiceManager(serviceManager).handleChallengeResolution(
             operator, taskNum, challengeSuccessful
         );
 
@@ -212,7 +212,7 @@ contract StateDisputeResolver is
         address _serviceManager
     ) external onlyOwner {
         require(_serviceManager != address(0), "Invalid address");
-        serviceManager = ICCSOServiceManager(_serviceManager);
+        serviceManager = ISpottedServiceManager(_serviceManager);
         emit ServiceManagerSet(_serviceManager);
     }
 

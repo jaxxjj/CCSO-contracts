@@ -14,13 +14,13 @@ import {PausableUpgradeable} from
 import {IPauserRegistry} from "@eigenlayer/contracts/interfaces/IPauserRegistry.sol";
 import {ISignatureUtils} from "@eigenlayer/contracts/interfaces/ISignatureUtils.sol";
 import {IStateDisputeResolver} from "../interfaces/IStateDisputeResolver.sol";
-import "../interfaces/ICCSOServiceManager.sol";
+import "../interfaces/ISpottedServiceManager.sol";
 
-contract CCSOServiceManager is
+contract SpottedServiceManager is
     Initializable,
     ECDSAServiceManagerBase,
     PausableUpgradeable,
-    ICCSOServiceManager
+    ISpottedServiceManager
 {
     using ECDSAUpgradeable for bytes32;
 
@@ -37,14 +37,14 @@ contract CCSOServiceManager is
 
     modifier onlyTaskResponseConfirmer() {
         if (!isTaskResponseConfirmer[msg.sender]) {
-            revert CCSOServiceManager__CallerNotTaskResponseConfirmer();
+            revert SpottedServiceManager__CallerNotTaskResponseConfirmer();
         }
         _;
     }
 
     modifier onlyDisputeResolver() {
         if (msg.sender != address(disputeResolver)) {
-            revert CCSOServiceManager__CallerNotDisputeResolver();
+            revert SpottedServiceManager__CallerNotDisputeResolver();
         }
         _;
     }
@@ -99,7 +99,7 @@ contract CCSOServiceManager is
         uint256 operatorsLength = operators.length;
         for (uint256 i = 0; i < operatorsLength;) {
             if (_taskResponses[operators[i]][referenceTaskIndex].resolved) {
-                revert CCSOServiceManager__TaskAlreadyResponded();
+                revert SpottedServiceManager__TaskAlreadyResponded();
             }
             unchecked {
                 ++i;
@@ -112,7 +112,7 @@ contract CCSOServiceManager is
 
         if (allTaskHashes[referenceTaskIndex] != bytes32(0)) {
             if (keccak256(abi.encode(task)) != allTaskHashes[referenceTaskIndex]) {
-                revert CCSOServiceManager__TaskHashMismatch();
+                revert SpottedServiceManager__TaskHashMismatch();
             }
         }
 
@@ -126,7 +126,7 @@ contract CCSOServiceManager is
                     ethSignedMessageHash, signatureData
                 )
         ) {
-            revert CCSOServiceManager__InvalidSignature();
+            revert SpottedServiceManager__InvalidSignature();
         }
         // record response for each signing operator
         for (uint256 i = 0; i < operatorsLength;) {
@@ -155,7 +155,7 @@ contract CCSOServiceManager is
     ) external onlyDisputeResolver {
         TaskResponse storage response = _taskResponses[operator][taskNum];
         if (response.challenged) {
-            revert CCSOServiceManager__TaskAlreadyChallenged();
+            revert SpottedServiceManager__TaskAlreadyChallenged();
         }
         response.challenged = true;
         emit TaskChallenged(operator, taskNum);
@@ -168,10 +168,10 @@ contract CCSOServiceManager is
     ) external onlyDisputeResolver {
         TaskResponse storage response = _taskResponses[operator][taskNum];
         if (!response.challenged) {
-            revert CCSOServiceManager__TaskNotChallenged();
+            revert SpottedServiceManager__TaskNotChallenged();
         }
         if (response.resolved) {
-            revert CCSOServiceManager__TaskAlreadyResolved();
+            revert SpottedServiceManager__TaskAlreadyResolved();
         }
 
         response.resolved = true;
@@ -199,7 +199,7 @@ contract CCSOServiceManager is
     }
 
     function _setTaskResponseConfirmer(address confirmer, bool status) internal {
-        if (confirmer == address(0)) revert CCSOServiceManager__InvalidAddress();
+        if (confirmer == address(0)) revert SpottedServiceManager__InvalidAddress();
         isTaskResponseConfirmer[confirmer] = status;
         emit TaskResponseConfirmerSet(confirmer, status);
     }

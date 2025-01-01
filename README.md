@@ -1,4 +1,4 @@
-# Cross-Chain State Oracle (CCSO)
+# Cross-Chain State Oracle (Spotted)
 
 CCSO is an AVS (Actively Validated Service) built on EigenLayer that enables cross-chain state queries. 
 

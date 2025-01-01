@@ -1,10 +1,10 @@
-# CCSOServiceManager
+# SpottedServiceManager
 
 | File | Type | Proxy |
 | -------- | -------- | -------- |
-| `CCSOServiceManager.sol` | Singleton | UUPS proxy |
+| `SpottedServiceManager.sol` | Singleton | UUPS proxy |
 
-`CCSOServiceManager` is responsible for managing cross-chain state oracle services and operator responses. It allows operators to respond to tasks and others to challenge potentially incorrect state claims. The service supports:
+`SpottedServiceManager` is responsible for managing cross-chain state oracle services and operator responses. It allows operators to respond to tasks and others to challenge potentially incorrect state claims. The service supports:
 - Task response verification through ECDSA signatures (much cheaper than BLS)
 - State challenge mechanism with bond requirement
 - Tasks list and history

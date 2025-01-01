@@ -3,22 +3,22 @@ pragma solidity ^0.8.26;
 
 import {ISignatureUtils} from "@eigenlayer/contracts/interfaces/ISignatureUtils.sol";
 
-interface ICCSOServiceManager {
+interface ISpottedServiceManager {
     // Custom errors
-    error CCSOServiceManager__TaskAlreadyResponded();
-    error CCSOServiceManager__TaskHashMismatch();
-    error CCSOServiceManager__InvalidSignature();
-    error CCSOServiceManager__TaskNotFound();
-    error CCSOServiceManager__InvalidChallenge();
-    error CCSOServiceManager__ChallengePeriodActive();
-    error CCSOServiceManager__InsufficientChallengeBond();
-    error CCSOServiceManager__TaskNotChallenged();
-    error CCSOServiceManager__CallerNotDisputeResolver();
-    error CCSOServiceManager__CallerNotStakeRegistry();
-    error CCSOServiceManager__TaskAlreadyChallenged();
-    error CCSOServiceManager__TaskAlreadyResolved();
-    error CCSOServiceManager__CallerNotTaskResponseConfirmer();
-    error CCSOServiceManager__InvalidAddress();
+    error SpottedServiceManager__TaskAlreadyResponded();
+    error SpottedServiceManager__TaskHashMismatch();
+    error SpottedServiceManager__InvalidSignature();
+    error SpottedServiceManager__TaskNotFound();
+    error SpottedServiceManager__InvalidChallenge();
+    error SpottedServiceManager__ChallengePeriodActive();
+    error SpottedServiceManager__InsufficientChallengeBond();
+    error SpottedServiceManager__TaskNotChallenged();
+    error SpottedServiceManager__CallerNotDisputeResolver();
+    error SpottedServiceManager__CallerNotStakeRegistry();
+    error SpottedServiceManager__TaskAlreadyChallenged();
+    error SpottedServiceManager__TaskAlreadyResolved();
+    error SpottedServiceManager__CallerNotTaskResponseConfirmer();
+    error SpottedServiceManager__InvalidAddress();
     // Events
 
     event TaskResponseConfirmerSet(address confirmer, bool status);
