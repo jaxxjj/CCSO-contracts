@@ -72,7 +72,7 @@ contract RegistryStateSender is Ownable2Step {
 
         // Collect data for each operator
         uint256 index = 0;
-        for (uint256 i = 0; i < totalOperators; ) {
+        for (uint256 i = 0; i < totalOperators;) {
             if (stakeRegistry.operatorRegistered(operators[i])) {
                 operators[index] = operators[i];
                 weights[index] = stakeRegistry.getLastCheckpointOperatorWeight(operators[i]);

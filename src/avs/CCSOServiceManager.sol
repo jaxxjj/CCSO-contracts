@@ -32,6 +32,16 @@ contract CCSOServiceManager is
     // State variables
     IStateDisputeResolver public immutable disputeResolver;
 
+    // Task response confirmer mapping
+    mapping(address => bool) public isTaskResponseConfirmer;
+
+    modifier onlyTaskResponseConfirmer() {
+        if (!isTaskResponseConfirmer[msg.sender]) {
+            revert CCSOServiceManager__CallerNotTaskResponseConfirmer();
+        }
+        _;
+    }
+
     modifier onlyDisputeResolver() {
         if (msg.sender != address(disputeResolver)) {
             revert CCSOServiceManager__CallerNotDisputeResolver();
@@ -55,19 +65,33 @@ contract CCSOServiceManager is
     function initialize(
         address initialOwner,
         address initialRewardsInitiator,
-        IPauserRegistry pauserRegistry
+        IPauserRegistry pauserRegistry,
+        address[] memory initialConfirmers
     ) external initializer {
         __Ownable_init();
         __Pausable_init();
         __ServiceManagerBase_init(initialOwner, address(pauserRegistry));
         _setRewardsInitiator(initialRewardsInitiator);
+
+        // Set initial confirmers
+        uint256 initialConfirmersLength = initialConfirmers.length;
+        for (uint256 i = 0; i < initialConfirmersLength;) {
+            _setTaskResponseConfirmer(initialConfirmers[i], true);
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function setTaskResponseConfirmer(address confirmer, bool status) external onlyOwner {
+        _setTaskResponseConfirmer(confirmer, status);
     }
 
     function respondToTask(
         Task calldata task,
         uint32 referenceTaskIndex,
         bytes memory signatureData
-    ) external override whenNotPaused {
+    ) external override whenNotPaused onlyTaskResponseConfirmer {
         // Decode signature data
         (address[] memory operators,,) = abi.decode(signatureData, (address[], bytes[], uint32));
 
@@ -105,7 +129,7 @@ contract CCSOServiceManager is
             revert CCSOServiceManager__InvalidSignature();
         }
         // record response for each signing operator
-        for (uint256 i = 0; i < operatorsLength; ) {
+        for (uint256 i = 0; i < operatorsLength;) {
             _taskResponses[operators[i]][referenceTaskIndex] = TaskResponse({
                 task: task,
                 responseBlock: block.number,
@@ -149,9 +173,16 @@ contract CCSOServiceManager is
         if (response.resolved) {
             revert CCSOServiceManager__TaskAlreadyResolved();
         }
-        
+
         response.resolved = true;
         emit ChallengeResolved(operator, taskNum, challengeSuccessful);
+    }
+
+    function registerOperatorToAVS(
+        address operator,
+        ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
+    ) external override onlyStakeRegistry {
+        _registerOperatorToAVS(operator, operatorSignature);
     }
 
     function getTaskHash(
@@ -167,10 +198,9 @@ contract CCSOServiceManager is
         return _taskResponses[operator][taskNum];
     }
 
-    function registerOperatorToAVS(
-        address operator,
-        ISignatureUtils.SignatureWithSaltAndExpiry memory operatorSignature
-    ) external override onlyStakeRegistry {
-        _registerOperatorToAVS(operator, operatorSignature);
+    function _setTaskResponseConfirmer(address confirmer, bool status) internal {
+        if (confirmer == address(0)) revert CCSOServiceManager__InvalidAddress();
+        isTaskResponseConfirmer[confirmer] = status;
+        emit TaskResponseConfirmerSet(confirmer, status);
     }
 }

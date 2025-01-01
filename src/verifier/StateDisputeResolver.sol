@@ -160,9 +160,7 @@ contract StateDisputeResolver is
 
         // Notify service manager of resolution
         ICCSOServiceManager(serviceManager).handleChallengeResolution(
-            operator,
-            taskNum,
-            challengeSuccessful
+            operator, taskNum, challengeSuccessful
         );
 
         emit ChallengeResolved(challengeId, challengeSuccessful);
@@ -183,7 +181,7 @@ contract StateDisputeResolver is
         }
         delete slashableStrategies;
         uint256 strategiesLength = strategies.length;
-        for (uint256 i = 0; i < strategiesLength; ) {
+        for (uint256 i = 0; i < strategiesLength;) {
             slashableStrategies.push(strategies[i]);
             unchecked {
                 ++i;
@@ -259,7 +257,7 @@ contract StateDisputeResolver is
 
         uint256[] memory wadsToSlash = new uint256[](slashableStrategies.length);
         uint256 strategiesLength = slashableStrategies.length;
-        for (uint256 i = 0; i < strategiesLength; ) {
+        for (uint256 i = 0; i < strategiesLength;) {
             wadsToSlash[i] = slashAmount;
             unchecked {
                 ++i;

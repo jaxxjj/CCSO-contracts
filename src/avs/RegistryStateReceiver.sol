@@ -44,7 +44,7 @@ contract RegistryStateReceiver is IAbridgeMessageHandler, Ownable2Step {
 
         // update states
         uint256 operatorsLength = operators.length;
-        for (uint256 i = 0; i < operatorsLength; ) {
+        for (uint256 i = 0; i < operatorsLength;) {
             address operator = operators[i];
             operatorWeights[operator] = weights[i];
             operatorSigningKeys[operator] = signingKeys[i];
